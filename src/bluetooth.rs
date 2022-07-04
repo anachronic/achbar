@@ -9,7 +9,7 @@ fn device_is_connected(mac: &str) -> bool {
     match output {
         Err(_) => false,
         Ok(result) => {
-            let device_info = std::str::from_utf8(&result.stdout).unwrap();
+            let device_info = std::str::from_utf8(&result.stdout).unwrap_or("");
             let device_info = device_info.trim();
 
             device_info

@@ -2,9 +2,9 @@ mod bluetooth;
 mod volume;
 
 use chrono::prelude::*;
-use std::process::Command;
 use log::info;
 use simple_logger::SimpleLogger;
+use std::process::Command;
 
 fn datetime() -> String {
     let local = Local::now();

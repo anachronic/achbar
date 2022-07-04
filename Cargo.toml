@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4"
+log = "0.4.17"
+simple_logger = "2.1.0"

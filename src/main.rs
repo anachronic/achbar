@@ -1,7 +1,10 @@
 mod bluetooth;
+mod volume;
 
 use chrono::prelude::*;
 use std::process::Command;
+use log::info;
+use simple_logger::SimpleLogger;
 
 fn datetime() -> String {
     let local = Local::now();
@@ -10,10 +13,19 @@ fn datetime() -> String {
 }
 
 fn final_bar() -> String {
-    format!("{} | {}", bluetooth::devices(), datetime())
+    format!(
+        "{} | {} | {}",
+        volume::volume().or(Some("".to_string())).unwrap(),
+        bluetooth::devices(),
+        datetime()
+    )
 }
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+
+    info!("starting achbar");
+
     Command::new("xsetroot")
         .arg("-name")
         .arg(final_bar())

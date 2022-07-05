@@ -5,9 +5,11 @@ use chrono::prelude::*;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use simple_logger::SimpleLogger;
+use std::io::prelude::*;
 use std::process::Command;
 use std::sync::mpsc;
 use std::{thread, time};
+use subprocess::Exec;
 
 fn datetime() -> String {
     let local = Local::now();
@@ -49,16 +51,29 @@ fn main() {
     let datetime_tx = tx.clone();
 
     thread::spawn(move || loop {
-        let vol = volume::volume().or(Some(String::from(""))).unwrap();
-        volume_tx.send(("volume", vol)).ok();
-
-        thread::sleep(time::Duration::from_secs(1));
-    });
-
-    thread::spawn(move || loop {
         datetime_tx.send(("datetime", datetime())).ok();
 
         thread::sleep(time::Duration::from_secs(30));
+    });
+
+    thread::spawn(move || {
+        let stream = Exec::shell("pactl subscribe")
+            .stream_stdout()
+            .expect("cannot open pactl");
+
+        let mut reader = std::io::BufReader::new(stream);
+
+        loop {
+            let mut buf = String::new();
+            reader.read_line(&mut buf).unwrap();
+
+            if !buf.starts_with("Event 'change' on sink") {
+                continue;
+            }
+
+            let vol = volume::volume().or(Some(String::from(""))).unwrap();
+            volume_tx.send(("volume", vol)).ok();
+        }
     });
 
     loop {

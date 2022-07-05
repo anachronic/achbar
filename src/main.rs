@@ -2,12 +2,12 @@ mod bluetooth;
 mod volume;
 
 use chrono::prelude::*;
+use linked_hash_map::LinkedHashMap;
 use log::info;
 use simple_logger::SimpleLogger;
 use std::process::Command;
 use std::sync::mpsc;
 use std::{thread, time};
-use linked_hash_map::LinkedHashMap;
 
 fn datetime() -> String {
     let local = Local::now();
@@ -36,7 +36,10 @@ fn main() {
 
     let mut bar: LinkedHashMap<&str, String> = LinkedHashMap::new();
 
-    bar.insert("volume", volume::volume().or(Some(String::from(""))).unwrap());
+    bar.insert(
+        "volume",
+        volume::volume().or(Some(String::from(""))).unwrap(),
+    );
     bar.insert("bluetooth", bluetooth::devices());
     bar.insert("datetime", datetime());
 
@@ -45,21 +48,17 @@ fn main() {
     let volume_tx = tx.clone();
     let datetime_tx = tx.clone();
 
-    thread::spawn(move || {
-        loop {
-            let vol = volume::volume().or(Some(String::from(""))).unwrap();
-            volume_tx.send(("volume", vol)).ok();
+    thread::spawn(move || loop {
+        let vol = volume::volume().or(Some(String::from(""))).unwrap();
+        volume_tx.send(("volume", vol)).ok();
 
-            thread::sleep(time::Duration::from_secs(1));
-        }
+        thread::sleep(time::Duration::from_secs(1));
     });
 
-    thread::spawn(move || {
-        loop {
-            datetime_tx.send(("datetime", datetime())).ok();
+    thread::spawn(move || loop {
+        datetime_tx.send(("datetime", datetime())).ok();
 
-            thread::sleep(time::Duration::from_secs(30));
-        }
+        thread::sleep(time::Duration::from_secs(30));
     });
 
     loop {

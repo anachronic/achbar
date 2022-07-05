@@ -17,11 +17,13 @@ fn reprint_bar(bar: &LinkedHashMap<&str, String>) {
         .collect::<Vec<_>>()
         .join(" | ");
 
-    Command::new("xsetroot")
+    let mut child = Command::new("xsetroot")
         .arg("-name")
         .arg(fmt)
         .spawn()
         .expect("Failed to set x root");
+
+    child.wait().expect("Couldn't wait for xsetroot");
 }
 
 fn main() {

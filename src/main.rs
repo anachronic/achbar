@@ -20,6 +20,7 @@ fn datetime() -> String {
 fn reprint_bar(bar: &LinkedHashMap<&str, String>) {
     let fmt = bar
         .values()
+        .filter(|str| !str.is_empty())
         .map(|str| str.to_string())
         .collect::<Vec<_>>()
         .join(" | ");
@@ -38,10 +39,7 @@ fn main() {
 
     let mut bar: LinkedHashMap<&str, String> = LinkedHashMap::new();
 
-    bar.insert(
-        "volume",
-        volume::volume().or(Some(String::from(""))).unwrap(),
-    );
+    bar.insert("volume", volume::volume());
     bar.insert("bluetooth", bluetooth::devices());
     bar.insert("datetime", datetime());
 
@@ -49,6 +47,25 @@ fn main() {
 
     let volume_tx = tx.clone();
     let datetime_tx = tx.clone();
+    let bluetooth_tx = tx.clone();
+
+    thread::spawn(move || {
+        let stream = Exec::shell("bluetoothctl monitor.get-pattern all")
+            .stream_stdout()
+            .expect("cannot open bluetoothctl");
+
+        let mut reader = std::io::BufReader::new(stream);
+
+        loop {
+            let mut buf = String::new();
+            reader.read_line(&mut buf).unwrap();
+
+            println!("got {}", buf);
+
+            let bt_devices = bluetooth::devices();
+            bluetooth_tx.send(("bluetooth", bt_devices)).ok();
+        }
+    });
 
     thread::spawn(move || loop {
         datetime_tx.send(("datetime", datetime())).ok();
@@ -71,8 +88,7 @@ fn main() {
                 continue;
             }
 
-            let vol = volume::volume().or(Some(String::from(""))).unwrap();
-            volume_tx.send(("volume", vol)).ok();
+            volume_tx.send(("volume", volume::volume())).ok();
         }
     });
 

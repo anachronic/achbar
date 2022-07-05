@@ -1,21 +1,13 @@
 mod bluetooth;
+mod datetime;
 mod volume;
 
-use chrono::prelude::*;
 use linked_hash_map::LinkedHashMap;
 use log::info;
 use simple_logger::SimpleLogger;
-use std::io::prelude::*;
 use std::process::Command;
 use std::sync::mpsc;
-use std::{thread, time};
-use subprocess::Exec;
-
-fn datetime() -> String {
-    let local = Local::now();
-
-    local.format("%a %d %b %H:%M CLST").to_string()
-}
+use std::thread;
 
 fn reprint_bar(bar: &LinkedHashMap<&str, String>) {
     let fmt = bar
@@ -41,7 +33,7 @@ fn main() {
 
     bar.insert("volume", volume::volume());
     bar.insert("bluetooth", bluetooth::devices());
-    bar.insert("datetime", datetime());
+    bar.insert("datetime", datetime::datetime());
 
     let (tx, rx): (mpsc::Sender<(&str, String)>, mpsc::Receiver<(&str, String)>) = mpsc::channel();
 
@@ -50,46 +42,15 @@ fn main() {
     let bluetooth_tx = tx.clone();
 
     thread::spawn(move || {
-        let stream = Exec::shell("bluetoothctl monitor.get-pattern all")
-            .stream_stdout()
-            .expect("cannot open bluetoothctl");
-
-        let mut reader = std::io::BufReader::new(stream);
-
-        loop {
-            let mut buf = String::new();
-            reader.read_line(&mut buf).unwrap();
-
-            println!("got {}", buf);
-
-            let bt_devices = bluetooth::devices();
-            bluetooth_tx.send(("bluetooth", bt_devices)).ok();
-        }
-    });
-
-    thread::spawn(move || loop {
-        datetime_tx.send(("datetime", datetime())).ok();
-
-        thread::sleep(time::Duration::from_secs(30));
+        bluetooth::run_bluetooth_thread(bluetooth_tx);
     });
 
     thread::spawn(move || {
-        let stream = Exec::shell("pactl subscribe")
-            .stream_stdout()
-            .expect("cannot open pactl");
+        datetime::run_datetime_thread(datetime_tx);
+    });
 
-        let mut reader = std::io::BufReader::new(stream);
-
-        loop {
-            let mut buf = String::new();
-            reader.read_line(&mut buf).unwrap();
-
-            if !buf.starts_with("Event 'change' on sink") {
-                continue;
-            }
-
-            volume_tx.send(("volume", volume::volume())).ok();
-        }
+    thread::spawn(move || {
+        volume::run_volume_thread(volume_tx);
     });
 
     loop {

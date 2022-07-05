@@ -1,4 +1,7 @@
 use std::process::Command;
+use std::sync::mpsc::Sender;
+use std::thread;
+use std::time::Duration;
 
 fn device_is_connected(mac: &str) -> bool {
     let output = Command::new("sh")
@@ -38,5 +41,13 @@ pub fn devices() -> String {
 
             format!("Bluetooth: {}", connected_devices)
         }
+    }
+}
+
+pub fn run_bluetooth_thread(sender: Sender<(&str, String)>) {
+    loop {
+        sender.send(("bluetooth", devices())).ok();
+
+        thread::sleep(Duration::from_secs(60));
     }
 }
